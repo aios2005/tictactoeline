@@ -87,3 +87,8 @@ button {
 button:hover {
     background-color: #008c95;
 }
+
+span.X { color: #ff2e63; font-weight: bold; }
+span.O { color: #00adb5; font-weight: bold; }
+#codigo-sala-display { margin-bottom: 10px; font-size: 0.9rem; color: #aaa; }
+#lobby input { padding: 10px; font-size: 1rem; border-radius: 5px; border: none; margin: 10px 0; width: 100%; text-align: center;}
