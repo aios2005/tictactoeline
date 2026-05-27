@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game container"> <!-- Div container-->
+    <div class="game-container">
         <h1> Jogo da Velha online - Anti block do SENAC </h1>
-
+        
         <div id="lobby">
             <button id="btn-criar-sala">Criar Nova Sala</button>
             <p>ou</p>
@@ -18,11 +18,10 @@
         </div>
 
         <div id="game-screen" style="display: none;">
-
             <div id="status">Aguardando outro jogador...</div>
             <div id="codigo-sala-display">Sala: <span id="sala-id">----</span> | Você é o jogador: <span id="seu-simbolo">?</span></div>
-
-            <div class="board"> <!-- Tabuleiro com 9 celulas-->
+            
+            <div class="board">
                 <div class="cell" data-index="0"></div>
                 <div class="cell" data-index="1"></div>
                 <div class="cell" data-index="2"></div>
@@ -40,7 +39,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
-    <script src="script.js" ></script>
+    
+    <script src="script.js"></script>
 </body>
 </html>
