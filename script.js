@@ -1,80 +1,179 @@
-const boardElement = document.querySelector('.board');
+const firebaseConfig = {
+  apiKey: "AIzaSyAtCkJLZVrECRr69i06a0H8t3EJb7eUShY",
+  authDomain: "anti-block-senac-tic-tac-toe.firebaseapp.com",
+  databaseURL: "https://anti-block-senac-tic-tac-toe-default-rtdb.firebaseio.com",
+  projectId: "anti-block-senac-tic-tac-toe",
+  storageBucket: "anti-block-senac-tic-tac-toe.firebasestorage.app",
+  messagingSenderId: "892772968817",
+  appId: "1:892772968817:web:f89c7551c696dbbf412ed0"
+};
+
+// Inicializa o Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+
+const lobby = document.getElementById('lobby');
+const gameScreen = document.getElementById('game-screen');
 const cells = document.querySelectorAll('.cell');
-const turnElement = document.getElementById('player-turn');
+const statusElement = document.getElementById('status');
+const salaIdElement = document.getElementById('sala-id');
+const seuSimboloElement = document.getElementById('seu-simbolo');
 const resetBtn = document.getElementById('reset-btn');
 
-//stategame
-let board = ["","","","","","","","",""];
-let currentPlayer = "X";
-let isGameActive = true;
+// Estado do Jogo Local
+let salaId = null;
+let meuSimbolo = null; 
+let turnoAtual = 'X';
+let tabuleiro = ["","","","","","","","",""];
+let jogoAtivo = false;
 
+// EVENTOS DE ENTRADA NA SALA
+document.getElementById('btn-criar-sala').addEventListener('click', criarSala);
+document.getElementById('btn-entrar-sala').addEventListener('click', () => {
+    const id = document.getElementById('input-sala').value.trim();
+    if(id) entrarNaSala(id);
+});
 
-const winningConditions = [
-    [0,1,2], [3,4,5], [6,7,8], //linhas
-    [0,3,6], [1,4,7], [2,5,8], //colunas
-    [0,4,8], [2,4,6]           //diagonais
-];
-
-//chamada a cada click
-function handleCellClick(event) {
-    const clickedCell = event.target;
-    const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
-
-    //se a casa ja foi clicada ou game over, ignora
-    if (board[clickedCellIndex] !== "" || !isGameActive){
-        return;
-    }
-
-    //update a cada click
-    board[clickedCellIndex] = currentPlayer;
-    clickedCell.textContent = currentPlayer;
-    clickedCell.classList.add(currentPlayer);
-
-    checkResult();
-}
-
-function checkResult() {
-    let roundWon = false;
-
-    for (let i = 0; i < winningConditions.length; i++) {
-        const [a, b, c] = winningConditions[i];
-        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-            roundWon = true;
-            break;
-        }
-    }
-
-    if (roundWon) {
-        document.getElementById('status').innerHTML = `Jogador <span style="color: ${currentPlayer === 'X' ? '#ff2e63' : '#00adb5'}">${currentPlayer}</span> Venceu! ;D`;
-        isGameActive = false;
-        return;
-    }
-
-    // Se nao ha espaços vazios e ninguem ganhou, eh empate
-    if (!board.includes("")) {
-        document.getElementById('status').textContent = "O jogo empatou!";
-        isGameActive = false;
-        return;
-    }
-
-    // Alterna o turno
-    currentPlayer = currentPlayer === "X" ? "O" : "X";
-    turnElement.textContent = currentPlayer;
-}
-
-//reset
-function resetGame() {
-    board = ["", "", "", "", "", "", "", "", ""];
-    isGameActive = true;
-    currentPlayer = "X";
-    turnElement.textContent = currentPlayer;
-    document.getElementById('status').innerHTML = `Turno do jogador: <span id="player-turn">X</span>`;
+// FUNÇÃO PARA CRIAR SALA (Jogador 1 - X)
+function criarSala() {
+    salaId = Math.floor(1000 + Math.random() * 9000).toString(); // Gera código de 4 dígitos
+    meuSimbolo = 'X';
     
-    cells.forEach(cell => {
-        cell.textContent = "";
-        cell.classList.remove('X', 'O');
+    // Salva a estrutura inicial no Firebase
+    database.ref('salas/' + salaId).set({
+        tabuleiro: ["","","","","","","","",""],
+        turno: 'X',
+        status: 'aguardando',
+        jogadorX: true,
+        jogadorO: false
+    }).then(() => {
+        iniciarInterfaceJogo();
     });
 }
 
-cells.forEach(cell => cell.addEventListener('click', handleCellClick));
-resetBtn.addEventListener('click', resetGame);
+// FUNÇÃO PARA ENTRAR EM SALA EXISTENTE (Jogador 2 - O)
+function entrarNaSala(id) {
+    salaId = id;
+    
+    database.ref('salas/' + salaId).once('value', (snapshot) => {
+        if(!snapshot.exists()) {
+            alert('Sala não encontrada!');
+            return;
+        }
+        
+        const dadosSala = snapshot.val();
+        
+        if(dadosSala.jogadorO) {
+            alert('Esta sala já está cheia!');
+            return;
+        }
+        
+        meuSimbolo = 'O';
+        // Atualiza no Firebase informando que o jogador O entrou e o jogo pode começar
+        database.ref('salas/' + salaId).update({
+            jogadorO: true,
+            status: 'jogando'
+        }).then(() => {
+            iniciarInterfaceJogo();
+        });
+    });
+}
+
+// ATIVA A ESCUTA EM TEMPO REAL DO BANCO
+function iniciarInterfaceJogo() {
+    lobby.style.display = 'none';
+    gameScreen.style.display = 'block';
+    salaIdElement.textContent = salaId;
+    seuSimboloElement.textContent = meuSimbolo;
+    seuSimboloElement.className = meuSimbolo; // Adiciona cor ao texto do símbolo
+
+    // Conecta o ouvinte do Firebase: qualquer mudança na nuvem atualiza a tela
+    database.ref('salas/' + salaId).on('value', (snapshot) => {
+        if(!snapshot.exists()) return;
+        const dados = snapshot.val();
+        
+        tabuleiro = dados.tabuleiro;
+        turnoAtual = dados.turno;
+        
+        // Atualiza o visual das células
+        cells.forEach((cell, index) => {
+            cell.textContent = tabuleiro[index];
+            cell.className = 'cell'; // Limpa classes antigas
+            if(tabuleiro[index]) cell.classList.add(tabuleiro[index]);
+        });
+
+        // Gerencia os estados do jogo
+        if(dados.status === 'aguardando') {
+            statusElement.textContent = "Aguardando o Jogador 2 entrar...";
+            jogoAtivo = false;
+        } else if (dados.status === 'jogando') {
+            jogoAtivo = true;
+            if(turnoAtual === meuSimbolo) {
+                statusElement.textContent = "Seu turno! Jogue.";
+            } else {
+                statusElement.textContent = `Turno do oponente (${turnoAtual})...`;
+            }
+        } else if (dados.status === 'vitoria') {
+            statusElement.innerHTML = `Jogador <span class="${dados.vencedor}">${dados.vencedor}</span> Venceu! 🎉`;
+            jogoAtivo = false;
+        } else if (dados.status === 'empate') {
+            statusElement.textContent = "O jogo empatou! 😮";
+            jogoAtivo = false;
+        }
+    });
+}
+
+// CLIQUE NAS CÉLULAS DO TABULEIRO
+cells.forEach(cell => {
+    cell.addEventListener('click', (e) => {
+        const index = parseInt(e.target.getAttribute('data-index'));
+        
+        // Só joga se for o seu turno, a casa estiver vazia e o jogo ativo
+        if(!jogoAtivo || turnoAtual !== meuSimbolo || tabuleiro[index] !== "") return;
+        
+        tabuleiro[index] = meuSimbolo;
+        
+        // Passa o turno
+        const proximoTurno = meuSimbolo === 'X' ? 'O' : 'X';
+        
+        // Verifica localmente se essa jogada deu vitória ou empate
+        let statusJogo = 'jogando';
+        let vencedor = '';
+        
+        const condicoesVitoria = [
+            [0,1,2], [3,4,5], [6,7,8], [0,3,6], [1,4,7], [2,5,8], [0,4,8], [2,4,6]
+        ];
+
+        for (let i = 0; i < condicoesVitoria.length; i++) {
+            const [a, b, c] = condicoesVitoria[i];
+            if (tabuleiro[a] && tabuleiro[a] === tabuleiro[b] && tabuleiro[a] === tabuleiro[c]) {
+                statusJogo = 'vitoria';
+                vencedor = meuSimbolo;
+                break;
+            }
+        }
+
+        if (statusJogo !== 'vitoria' && !tabuleiro.includes("")) {
+            statusJogo = 'empate';
+        }
+
+        // Envia todas as atualizações para o Firebase de uma vez só
+        database.ref('salas/' + salaId).update({
+            tabuleiro: tabuleiro,
+            turno: proximoTurno,
+            status: statusJogo,
+            vencedor: vencedor
+        });
+    });
+});
+
+// BOTAÃO DE REINICIAR (Limpa a sala no Firebase para recomeçar)
+resetBtn.addEventListener('click', () => {
+    database.ref('salas/' + salaId).update({
+        tabuleiro: ["","","","","","","","",""],
+        turno: 'X',
+        status: 'jogando',
+        vencedor: ''
+    });
+});
