@@ -6,7 +6,8 @@
 }
 
 body {
-    background-color: #121214;
+    background-image:  linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.9)), url('https://wallpaperaccess.com/full/2078969.jpg');
+    /*background-color: #121214;*/
     color: #ffffff;
     display: flex;
     justify-content: center;
